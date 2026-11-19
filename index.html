@@ -364,7 +364,7 @@ function classifyScan(samples) {
     e.preventDefault(); view();
   });
   var pad = $("pad"), NAMES = { L: "LEFT", U: "TOP", F: "FRONT", R: "RIGHT", D: "BOTTOM", B: "BACK" };
-  [["L", "U", "F", "R", "D", "B"], ["L'", "U'", "F'", "R'", "D'", "B'"]].forEach(function (rowMoves) { rowMoves.forEach(function (m) {
+  [["L", "U", "F", "R", "D", "B"]].forEach(function (rowMoves) { rowMoves.forEach(function (m) {
     var b = document.createElement("button"), f = m.charAt(0), back = m.length > 1; b.className = "key"; b.dataset.m = m;
     b.innerHTML = (back ? "&#8679;" : "") + KEY_OF[f] + "<small>" + NAMES[f] + "</small>";
     b.setAttribute("aria-label", "Turn the " + NAMES[f].toLowerCase() + " side " + (back ? "counterclockwise" : "clockwise"));
