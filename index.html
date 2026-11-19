@@ -3,166 +3,91 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Cube Solver</title>
-<meta name="description" content="Show each side of your Rubik's Cube to your camera and get the moves to solve it. Everything runs on your device.">
+<title>Cube</title>
+<meta name="description" content="A Rubik's Cube you solve with your keyboard. Scramble it, turn the sides with A S D and J K L, and race the timer.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&family=Space+Grotesk:wght@500;700&display=swap">
 <style>
-/* Layout: one centred column, black and white. The only color on the page is the cube's own stickers. */
+/* Layout: the cube in the middle of a black stage, the timer and buttons under it, the key guide at the bottom. Black and white; only the stickers have color. */
 :root {
   color-scheme: dark;
-  --bg: #000; --ink: #fff; --muted: #8a8a8a; --line: #2a2a2a; --panel: #0d0d0d; --bad: #ff5a4f;
-  --g: 16px;
-  --s: calc((min(100vw, 520px) - 2 * var(--g) - 22px) / 12);
+  --bg: #000; --ink: #fff; --muted: #8a8a8a; --line: #2a2a2a; --panel: #0d0d0d;
+  --c: clamp(44px, 13vw, 72px);          /* one small cube */
   --f-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
   --f-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); }
 body { color: var(--ink); font: 16px/1.5 var(--f-display); -webkit-text-size-adjust: 100%;
-  padding: env(safe-area-inset-top, 0px) max(var(--g), env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(var(--g), env(safe-area-inset-left, 0px)); }
-#app { max-width: 520px; margin: 0 auto; padding-bottom: 40px; }
+  padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(16px, env(safe-area-inset-left, 0px)); }
+#app { max-width: 640px; margin: 0 auto; padding-bottom: 32px; }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; }
+header { display: flex; align-items: center; justify-content: space-between; padding: 16px 0 0; }
 .brand { font: 700 20px/1 var(--f-display); letter-spacing: -0.02em; }
 .brand b { background: var(--ink); color: var(--bg); padding: 1px 6px; margin-left: 2px; }
-.link { background: none; border: 0; padding: 8px 0; color: var(--muted); font: 500 13px var(--f-mono); letter-spacing: 0.04em; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
-h1 { margin: 8px 0 12px; font: 700 clamp(30px, 8.5vw, 44px)/1.04 var(--f-display); letter-spacing: -0.035em; text-wrap: balance; }
-h2 { margin: 0 0 6px; font: 700 24px/1.15 var(--f-display); letter-spacing: -0.02em; }
-p { margin: 0 0 14px; }
-.lede { color: #cfcfcf; font-size: 18px; }
-.muted { color: var(--muted); }
-.small { font: 500 12px/1.4 var(--f-mono); color: var(--muted); letter-spacing: 0.02em; }
-.btn { display: inline-flex; align-items: center; justify-content: center; min-height: 50px; padding: 0 22px; border-radius: 12px; border: 1px solid var(--ink); background: var(--ink); color: var(--bg); font: 700 16px/1 var(--f-display); cursor: pointer; }
+.small { font: 500 12px/1.4 var(--f-mono); color: var(--muted); letter-spacing: 0.04em; }
+
+/* the 3D stage */
+.stage { position: relative; height: calc(var(--c) * 6.4); perspective: calc(var(--c) * 16); touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.stage:active { cursor: grabbing; }
+.cube { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; }
+.st { position: absolute; left: calc(var(--c) / -2); top: calc(var(--c) / -2); width: var(--c); height: var(--c); background: #050505; transform-style: preserve-3d; backface-visibility: hidden; }
+.st::after { content: ""; position: absolute; inset: 7%; border-radius: 12%; background: var(--col); }
+.banner { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; font: 700 22px var(--f-display); letter-spacing: -0.02em; opacity: 0; transition: opacity 0.25s; pointer-events: none; }
+.banner.on { opacity: 1; }
+
+/* timer, counter and buttons */
+.stats { display: flex; justify-content: center; gap: 28px; margin: 6px 0 14px; }
+.stats div { text-align: center; }
+.stats b { display: block; font: 700 34px/1 var(--f-display); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.btn { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 20px; border-radius: 12px; border: 1px solid var(--ink); background: var(--ink); color: var(--bg); font: 700 16px/1 var(--f-display); cursor: pointer; }
 .btn.ghost { background: transparent; color: var(--ink); border-color: #4a4a4a; }
 .btn:disabled { opacity: 0.35; cursor: default; }
-.row { display: flex; gap: 10px; flex-wrap: wrap; }
-.row .grow { flex: 1; }
-.steps { list-style: none; padding: 0; margin: 22px 0; border-top: 1px solid var(--line); }
-.steps li { display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--line); color: #cfcfcf; }
-.steps i { font: 500 12px/1.9 var(--f-mono); font-style: normal; color: var(--muted); min-width: 22px; }
+.status { min-height: 22px; text-align: center; color: var(--muted); margin: 10px 0 0; font-size: 14px; }
 
-/* Scanning */
-.progress { display: flex; gap: 6px; margin: 4px 0 14px; }
-.progress span { flex: 1; height: 4px; background: var(--line); }
-.progress span.done { background: var(--ink); } .progress span.now { background: #8a8a8a; }
-.cam { position: relative; width: 100%; aspect-ratio: 1; background: #111; border-radius: 16px; overflow: hidden; margin-bottom: 12px; }
-.cam video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.cam .grid { position: absolute; left: 12%; top: 12%; width: 76%; height: 76%; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); border: 2px solid rgba(255, 255, 255, 0.85); }
-.cam .grid div { border: 1px solid rgba(255, 255, 255, 0.55); display: grid; place-items: center; }
-.cam .grid i { width: 36%; aspect-ratio: 1; border-radius: 50%; border: 2px solid #fff; background: #555; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55); }
-.cam .msg { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: #d6d6d6; font-size: 15px; }
-.tip { border-left: 2px solid var(--ink); padding: 2px 0 2px 12px; margin: 0 0 14px; color: #cfcfcf; }
-
-/* The unfolded cube */
-.net { display: grid; grid-template-columns: repeat(12, var(--s)); grid-template-rows: repeat(9, var(--s)); gap: 2px; justify-content: center; margin: 6px 0 14px; }
-.st { width: var(--s); height: var(--s); border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35); position: relative; }
-.st.empty { background: transparent; box-shadow: inset 0 0 0 1px #333; }
-.st.mid::after { content: ""; position: absolute; left: 40%; top: 40%; width: 20%; height: 20%; border-radius: 50%; background: rgba(0, 0, 0, 0.55); }
-.st.edit { cursor: pointer; }
-.st.bad { box-shadow: 0 0 0 2px var(--bad); z-index: 1; }
-.st.turn { box-shadow: 0 0 0 2px #fff; z-index: 1; }
-.st.dim { opacity: 0.4; }
-.facelabel { position: absolute; font: 500 10px var(--f-mono); color: var(--muted); pointer-events: none; }
-
-/* Review */
-.chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 0 14px; }
-.chip { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 10px; border: 1px solid #3a3a3a; background: var(--panel); color: var(--ink); font: 500 13px var(--f-display); cursor: pointer; text-align: left; }
-.chip[aria-pressed="true"] { border-color: #fff; box-shadow: 0 0 0 1px #fff; }
-.chip i { width: 18px; height: 18px; border-radius: 4px; flex: none; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35); }
-.chip span { flex: 1; } .chip em { font: 500 12px var(--f-mono); font-style: normal; color: var(--muted); }
-.chip.off em { color: var(--bad); }
-.status { min-height: 24px; margin: 0 0 14px; }
-.status.bad { color: var(--bad); }
-
-/* Solution */
-.mv { display: flex; align-items: center; gap: 16px; padding: 14px 16px; border: 1px solid #3a3a3a; border-radius: 14px; margin: 4px 0 12px; background: var(--panel); }
-.mv .big { font: 700 56px/1 var(--f-display); letter-spacing: -0.03em; min-width: 80px; text-align: center; }
-.mv .how { font-size: 16px; color: #d6d6d6; }
-.count { font: 500 13px var(--f-mono); color: var(--muted); letter-spacing: 0.04em; margin: 0 0 6px; }
-details { border-top: 1px solid var(--line); padding: 12px 0; color: #cfcfcf; }
-summary { cursor: pointer; font-weight: 700; }
-.busy { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.88); display: grid; place-items: center; text-align: center; padding: 24px; z-index: 9; font-size: 18px; }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+/* key guide and touch pad */
+.guide { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 16px; }
+.pad { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.key { min-height: 46px; border-radius: 10px; border: 1px solid #3a3a3a; background: var(--panel); color: var(--ink); font: 700 17px var(--f-display); cursor: pointer; }
+.key small { display: block; font: 500 10px var(--f-mono); color: var(--muted); letter-spacing: 0.04em; }
+.key.flash { background: var(--ink); color: var(--bg); }
+.key.flash small { color: #333; }
+.legend { margin-top: 14px; color: #cfcfcf; font-size: 14px; }
+.legend kbd { font: 500 12px var(--f-mono); border: 1px solid #444; border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; color: var(--ink); background: var(--panel); }
+@media (prefers-reduced-motion: reduce) { .banner { transition: none; } }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <div class="brand">cube<b>solver</b></div>
-    <button class="link" id="startOver" hidden>START OVER</button>
+    <div class="brand">cube<b>keys</b></div>
+    <span class="small">A S D &nbsp;J K L TO TURN</span>
   </header>
 
-  <!-- Home -->
-  <section id="v-home">
-    <h1>Solve your cube with your camera.</h1>
-    <p class="lede">Show each side to the camera. Get the exact moves, one at a time.</p>
-    <ol class="steps">
-      <li><i>01</i><span>Show all 6 sides to your camera, or take a photo of each.</span></li>
-      <li><i>02</i><span>Check the colors it read, and tap to fix any mistakes.</span></li>
-      <li><i>03</i><span>Follow the moves, one at a time, until it's solved.</span></li>
-    </ol>
-    <div class="row">
-      <button class="btn grow" id="goScan">Start scanning</button>
-      <button class="btn ghost grow" id="goDemo">Try a demo cube</button>
-    </div>
-    <p class="small" style="margin-top:16px">Your photos never leave your device. Everything runs in this page.</p>
-  </section>
+  <div class="stage" id="stage" aria-label="Your cube. Drag to look around."><div class="cube" id="cube"></div><div class="banner" id="banner">Solved!</div></div>
 
-  <!-- Scan -->
-  <section id="v-scan" hidden>
-    <div class="progress" id="progress"></div>
-    <h2 id="scanTitle">Face 1 of 6</h2>
-    <p class="tip" id="scanHint"></p>
-    <div class="cam" id="cam">
-      <video id="video" playsinline muted autoplay></video>
-      <div class="grid" id="camGrid"></div>
-      <div class="msg" id="camMsg" hidden></div>
-    </div>
-    <div class="row">
-      <button class="btn ghost" id="scanBack">Back</button>
-      <button class="btn grow" id="scanCapture">Capture this side</button>
-    </div>
-    <p style="margin:14px 0 6px"><button class="link" id="scanPhoto" style="text-decoration:underline">USE A PHOTO INSTEAD</button></p>
-    <input type="file" id="photoInput" accept="image/*" capture="environment" hidden>
-    <div class="net" id="scanNet" aria-label="Sides scanned so far"></div>
-    <p class="small">Fill the square with one side of the cube. Good, even light helps a lot. Avoid glare and shadows.</p>
-  </section>
+  <div class="stats">
+    <div><b id="time">0:00.0</b><span class="small">TIME</span></div>
+    <div><b id="count">0</b><span class="small">MOVES</span></div>
+  </div>
+  <div class="row">
+    <button class="btn" id="scramble">Scramble</button>
+    <button class="btn ghost" id="reset">Reset</button>
+    <button class="btn ghost" id="helpme">Solve it for me</button>
+  </div>
+  <p class="status" id="status" aria-live="polite">Press Scramble, then solve it with your keyboard.</p>
 
-  <!-- Review -->
-  <section id="v-review" hidden>
-    <h2>Check the colors</h2>
-    <p class="muted">Tap a color below, then tap any sticker to change it. The middle stickers (with a dot) can't change.</p>
-    <div class="net" id="reviewNet"></div>
-    <div class="chips" id="chips"></div>
-    <p class="status" id="reviewStatus" aria-live="polite"></p>
-    <div class="row">
-      <button class="btn ghost" id="rescan">Scan again</button>
-      <button class="btn grow" id="solve">Solve it</button>
-    </div>
-  </section>
-
-  <!-- Solve -->
-  <section id="v-solve" hidden>
-    <h2 id="solveTitle">Your solution</h2>
-    <p class="muted" id="holdText"></p>
-    <div class="net" id="solveNet"></div>
-    <p class="count" id="stepCount"></p>
-    <div class="mv"><div class="big" id="moveBig">R</div><div class="how" id="moveHow"></div></div>
-    <div class="row">
-      <button class="btn ghost" id="prev">Previous</button>
-      <button class="btn grow" id="next">Next move</button>
-    </div>
-    <details>
-      <summary>How to read the moves</summary>
-      <p style="margin-top:10px">Each letter is a side of the cube: U top, D bottom, L left, R right, F front, B back. Turn that side as if you were looking straight at it.</p>
-      <p>A plain letter is a clockwise quarter turn. A letter with <b>'</b> is a counterclockwise quarter turn. A letter with <b>2</b> is a half turn.</p>
-    </details>
-  </section>
+  <div class="guide">
+    <div class="pad" id="pad"></div>
+    <p class="legend">
+      Left hand: <kbd>A</kbd> left side, <kbd>S</kbd> top, <kbd>D</kbd> front. Right hand: <kbd>J</kbd> right side, <kbd>K</kbd> bottom, <kbd>L</kbd> back.
+      Each key turns that side clockwise, as if you were looking straight at it. Hold <kbd>Shift</kbd> to turn it the other way. <kbd>&larr;</kbd> <kbd>&rarr;</kbd> <kbd>&uarr;</kbd> <kbd>&darr;</kbd> or dragging the cube spins your view.
+    </p>
+  </div>
 </div>
-<div class="busy" id="busy" hidden><div id="busyText">Working...</div></div>
 
 <script>
 /* ---------- Cube model: stickers, moves, validity, and colour reading. Pure functions, no page access. ---------- */
@@ -330,190 +255,134 @@ function classifyScan(samples) {
 (function () {
   "use strict";
   var $ = function (id) { return document.getElementById(id); };
-  var FACE_NAMES = { U: "top", D: "bottom", L: "left", R: "right", F: "front", B: "back" };
-  var STEPS = [
-    { face: "F", title: "Front", hint: "Pick any side to start. Hold it facing the camera, with the side you want as the top facing up." },
-    { face: "R", title: "Right", hint: "Turn the whole cube so the side on its right swings round to face the camera. Keep the top side up." },
-    { face: "B", title: "Back", hint: "Turn the cube the same way again. Keep the top side up." },
-    { face: "L", title: "Left", hint: "Turn the cube the same way once more. Keep the top side up." },
-    { face: "U", title: "Top", hint: "Turn it the same way once more, so your first side faces the camera again. Then tilt the cube so the top faces the camera. Your first side should be at the bottom of the picture." },
-    { face: "D", title: "Bottom", hint: "Tilt the cube back upright. Then tilt it the other way so the bottom faces the camera. Your first side should be at the top of the picture." }
-  ];
-  var state = { view: "home", step: 0, scans: {}, facelets: null, paletteOf: null, brush: "U", notice: "", moves: [], states: [], idx: 0 };
-  var stream = null, liveTimer = 0, work = document.createElement("canvas"), wctx = work.getContext("2d", { willReadFrequently: true });
+  var COLORS = {};    // standard scheme: white top, green front, red right
+  LETTERS.split("").forEach(function (L) { COLORS[L] = PALETTE[STD_PALETTE_OF[L]].hex; });
+  var TURN_MS = 150;  // a quick ease-out turn, so fast typing still feels direct
 
-  function show(v) {
-    ["home", "scan", "review", "solve"].forEach(function (x) { $("v-" + x).hidden = x !== v; });
-    state.view = v; $("startOver").hidden = v === "home"; if (v !== "scan") stopCamera(); window.scrollTo(0, 0);
+  var game = { state: SOLVED, queue: [], busy: false, count: 0, started: 0, running: false, scrambled: false, finishedAt: 0, yaw: -35, pitch: -26, helping: false };
+
+  /* ---------- drawing the cube in 3D ---------- */
+  var cubeEl = $("cube"), stickers = [];
+  function px(v) { return "calc(var(--c) * " + v + ")"; }
+  function orient(n) {
+    if (n[2] === 1) return ""; if (n[2] === -1) return " rotateY(180deg)";
+    if (n[0] === 1) return " rotateY(90deg)"; if (n[0] === -1) return " rotateY(-90deg)";
+    return n[1] === 1 ? " rotateX(90deg)" : " rotateX(-90deg)";
   }
-  function css(rgb) { return "rgb(" + Math.round(rgb[0]) + "," + Math.round(rgb[1]) + "," + Math.round(rgb[2]) + ")"; }
-  function tick() { return new Promise(function (r) { setTimeout(r, 40); }); }
-  function busy(text) { $("busy").hidden = !text; if (text) $("busyText").textContent = text; }
-
-  /* ---------- The unfolded cube ---------- */
-  var NET_POS = { U: [3, 0], L: [0, 3], F: [3, 3], R: [6, 3], B: [9, 3], D: [3, 6] };
-  // fill(i) returns a css color or null; flags(i) returns extra class names
-  function renderNet(el, fill, flags, onTap) {
-    el.innerHTML = "";
-    LETTERS.split("").forEach(function (L) {
-      for (var k = 0; k < 9; k++) {
-        var i = FSTART[L] + k, d = document.createElement("div"), c = fill(i);
-        d.className = "st" + (c ? "" : " empty") + (k === 4 ? " mid" : "") + (flags ? " " + (flags(i) || "") : "");
-        if (c) d.style.background = c;
-        d.dataset.i = i; d.style.gridColumn = NET_POS[L][0] + (k % 3) + 1; d.style.gridRow = NET_POS[L][1] + Math.floor(k / 3) + 1;
-        el.appendChild(d);
-      }
-    });
-    el.onclick = onTap ? function (e) { var t = e.target.closest(".st"); if (t) onTap(parseInt(t.dataset.i, 10)); } : null;
+  // each sticker's resting place: its small cube's position, pushed out half a cube along the side it faces (screen y points down)
+  var BASE = STK.map(function (s) {
+    var p = [s.cell[0] + s.n[0] / 2, s.cell[1] + s.n[1] / 2, s.cell[2] + s.n[2] / 2];
+    return "translate3d(" + px(p[0]) + "," + px(-p[1]) + "," + px(p[2]) + ")" + orient(s.n);
+  });
+  for (var i = 0; i < 54; i++) { var d = document.createElement("div"); d.className = "st"; d.style.transform = BASE[i]; cubeEl.appendChild(d); stickers.push(d); }
+  function paint() { for (var i = 0; i < 54; i++) stickers[i].style.setProperty("--col", COLORS[game.state.charAt(i)]); }
+  function view() { cubeEl.style.transform = "rotateX(" + game.pitch + "deg) rotateY(" + game.yaw + "deg)"; }
+  // turn one layer of stickers by `deg` around the side's axis (a clockwise turn, seen from outside that side, is +90 on screen)
+  function layerOf(f) { var n = STK[FSTART[f]].n; return STK.map(function (s, i) { return n[0] * s.cell[0] + n[1] * s.cell[1] + n[2] * s.cell[2] === 1 ? i : -1; }).filter(function (i) { return i >= 0; }); }
+  var LAYERS = {}; LETTERS.split("").forEach(function (f) { LAYERS[f] = layerOf(f); });
+  function setLayerAngle(f, deg) {
+    var n = STK[FSTART[f]].n, rot = deg ? "rotate3d(" + n[0] + "," + (-n[1]) + "," + n[2] + "," + deg + "deg) " : "";
+    LAYERS[f].forEach(function (i) { stickers[i].style.transform = rot + BASE[i]; });
   }
+  window.__setLayerAngle = setLayerAngle;   // used by the test to check the turn direction
 
-  /* ---------- Camera and reading colors ---------- */
-  function median(arr) { arr.sort(); return arr[arr.length >> 1]; }
-  function sampleCanvas(cw, ch) {
-    var s = Math.min(cw, ch), x0 = (cw - s) / 2, y0 = (ch - s) / 2, cell = 0.76 * s / 3, gx = x0 + 0.12 * s, gy = y0 + 0.12 * s, half = Math.max(2, Math.round(cell * 0.17)), out = [];
-    for (var r = 0; r < 3; r++) for (var c = 0; c < 3; c++) {
-      var cx = Math.round(gx + cell * (c + 0.5)), cy = Math.round(gy + cell * (r + 0.5)), px = wctx.getImageData(cx - half, cy - half, half * 2, half * 2).data, R = new Uint8Array(px.length / 4), G = new Uint8Array(px.length / 4), B = new Uint8Array(px.length / 4);
-      for (var i = 0, j = 0; i < px.length; i += 4, j++) { R[j] = px[i]; G[j] = px[i + 1]; B[j] = px[i + 2]; }
-      out.push([median(R), median(G), median(B)]);
+  /* ---------- turning ---------- */
+  var easeOut = function (t) { return 1 - Math.pow(1 - t, 3); };
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function queueMove(m, fromUser) {
+    game.queue.push({ m: m, user: fromUser });
+    if (!game.busy) runQueue();
+  }
+  function runQueue() {
+    var job = game.queue.shift(); if (!job) { game.busy = false; return; }
+    game.busy = true;
+    var f = job.m.charAt(0), target = job.m.length === 1 ? 90 : (job.m.charAt(1) === "'" ? -90 : 180);
+    var dur = (job.m.length > 1 && job.m.charAt(1) === "2" ? 1.4 : 1) * (job.user ? TURN_MS : 90);
+    if (game.queue.length > 2) dur *= 0.5;              // catch up when keys are pressed faster than the turns
+    var t0 = performance.now();
+    function frame(now) {
+      var t = Math.min(1, (now - t0) / dur);
+      setLayerAngle(f, target * easeOut(t));
+      if (t < 1 && !reduce) return requestAnimationFrame(frame);
+      setLayerAngle(f, 0); game.state = applyMove(game.state, job.m); paint();
+      if (job.user) afterUserMove();
+      runQueue();
     }
-    return out;
+    requestAnimationFrame(frame);
   }
-  function drawScaled(src, sw, sh) {
-    var k = 480 / Math.max(sw, sh), cw = Math.round(sw * k), ch = Math.round(sh * k);
-    work.width = cw; work.height = ch; wctx.drawImage(src, 0, 0, cw, ch); return sampleCanvas(cw, ch);
+  function afterUserMove() {
+    game.count++; $("count").textContent = game.count;
+    if (game.scrambled && !game.running && !game.finishedAt) { game.running = true; game.started = performance.now(); tick(); }
+    if (game.scrambled && game.state === SOLVED && game.queue.length === 0) solved();
   }
-  function sampleVideo() { var v = $("video"); return v.videoWidth ? drawScaled(v, v.videoWidth, v.videoHeight) : null; }
-  function paintDots(samples) { var dots = $("camGrid").querySelectorAll("i"); samples.forEach(function (c, i) { dots[i].style.background = css(c); }); }
-  function camMessage(t) { $("camMsg").hidden = !t; $("camMsg").textContent = t || ""; }
-  function startCamera() {
-    camMessage("Starting the camera...");
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { camMessage("This page can't use a camera here. Use a photo instead."); return; }
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }).then(function (s) {
-      stream = s; $("video").srcObject = s; return $("video").play();
-    }).then(function () {
-      camMessage(""); clearInterval(liveTimer);
-      liveTimer = setInterval(function () { var s = sampleVideo(); if (s) paintDots(s); }, 180);
-    }).catch(function (e) {
-      var n = e && e.name;
-      camMessage(n === "NotAllowedError" ? "The camera was blocked. Allow it in your browser settings, or use a photo instead."
-        : n === "NotFoundError" ? "No camera was found. Use a photo instead." : "The camera couldn't start. Use a photo instead.");
-    });
+  function solved() {
+    game.running = false; game.scrambled = false; game.finishedAt = performance.now();
+    var t = $("time").textContent;
+    $("banner").textContent = game.helping ? "Solved!" : "Solved in " + t; $("banner").classList.add("on");
+    $("status").textContent = game.helping ? "Solved. Press Scramble to play again." : "Solved in " + t + " with " + game.count + " moves. Press Scramble to go again.";
+    game.helping = false;
   }
-  function stopCamera() { clearInterval(liveTimer); if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; } }
+  function fmt(ms) { var s = ms / 1000, m = Math.floor(s / 60); s -= m * 60; return m + ":" + (s < 10 ? "0" : "") + s.toFixed(1); }
+  function tick() { if (!game.running) return; $("time").textContent = fmt(performance.now() - game.started); requestAnimationFrame(tick); }
 
-  /* ---------- Scanning ---------- */
-  function renderScan() {
-    var st = STEPS[state.step];
-    $("scanTitle").textContent = "Side " + (state.step + 1) + " of 6: " + st.title;
-    $("scanHint").textContent = st.hint;
-    $("progress").innerHTML = STEPS.map(function (s, i) { return '<span class="' + (state.scans[s.face] ? "done" : (i === state.step ? "now" : "")) + '"></span>'; }).join("");
-    $("scanBack").disabled = state.step === 0;
-    renderNet($("scanNet"), function (i) { var L = STK[i].face, s = state.scans[L]; return s ? css(s[STK[i].k]) : null; },
-      function (i) { return STK[i].face === st.face ? "turn" : ""; });
+  function resetStats() { game.count = 0; game.running = false; game.finishedAt = 0; game.helping = false; $("count").textContent = "0"; $("time").textContent = "0:00.0"; $("banner").classList.remove("on"); }
+  function scramble() {
+    if (game.busy) return;
+    resetStats(); var sc = randomScramble(22);
+    parseAlg(sc).forEach(function (m) { game.queue.push({ m: m, user: false }); });
+    game.scrambled = true; game.lastScramble = sc;
+    $("status").textContent = "Scrambled. The timer starts on your first move.";
+    runQueue();
   }
-  function startScan() {
-    state.scans = {}; state.step = 0;
-    var dots = ""; for (var i = 0; i < 9; i++) dots += "<div><i></i></div>"; $("camGrid").innerHTML = dots;
-    show("scan"); renderScan(); startCamera();
-  }
-  function takeSamples(samples) {
-    state.scans[STEPS[state.step].face] = samples;
-    var next = -1; for (var i = 0; i < 6; i++) if (!state.scans[STEPS[i].face]) { next = i; break; }
-    if (next === -1) return finishScan();
-    state.step = next; renderScan();
-  }
-  function finishScan() {
-    var r = classifyScan(state.scans);
-    state.facelets = r.facelets.split(""); state.paletteOf = r.paletteOf; state.brush = "U";
-    state.notice = r.minCenterGap < 14 ? "Two of the middle stickers look very alike. If the colors below are wrong, scan again in better light." : "";
-    show("review"); renderReview();
-  }
-  function loadPhoto(file) {
-    var url = URL.createObjectURL(file), img = new Image();
-    img.onload = function () { try { takeSamples(drawScaled(img, img.naturalWidth, img.naturalHeight)); } finally { URL.revokeObjectURL(url); } };
-    img.onerror = function () { URL.revokeObjectURL(url); camMessage("That photo couldn't be opened. Try another."); };
-    img.src = url;
-  }
+  function reset() { game.queue = []; game.state = SOLVED; game.scrambled = false; resetStats(); paint(); $("status").textContent = "Press Scramble, then solve it with your keyboard."; }
 
-  /* ---------- Review ---------- */
-  function hexOf(L) { return PALETTE[state.paletteOf[L]].hex; }
-  function renderReview() {
-    var str = state.facelets.join(""), a = analyzeCube(str), bad = {}; a.cells.forEach(function (i) { bad[i] = 1; });
-    renderNet($("reviewNet"), function (i) { return hexOf(state.facelets[i]); }, function (i) { return "edit" + (bad[i] ? " bad" : ""); }, function (i) {
-      if (CENTERS.indexOf(i) !== -1) return; state.facelets[i] = state.brush; renderReview();
-    });
-    var counts = {}; state.facelets.forEach(function (L) { counts[L] = (counts[L] || 0) + 1; });
-    $("chips").innerHTML = "";
-    LETTERS.split("").forEach(function (L) {
-      var b = document.createElement("button"); b.className = "chip" + (counts[L] === 9 ? "" : " off"); b.setAttribute("aria-pressed", state.brush === L ? "true" : "false");
-      b.innerHTML = '<i style="background:' + hexOf(L) + '"></i><span>' + PALETTE[state.paletteOf[L]].name + "</span><em>" + (counts[L] || 0) + "/9</em>";
-      b.onclick = function () { state.brush = L; renderReview(); }; $("chips").appendChild(b);
-    });
-    var s = $("reviewStatus");
-    if (a.ok) { s.className = "status"; s.textContent = state.notice ? state.notice : "This is a real cube. Ready to solve."; }
-    else { s.className = "status bad"; s.textContent = a.message; }
-    $("solve").disabled = !a.ok;
-  }
-
-  /* ---------- Solving ---------- */
+  /* ---------- "Solve it for me": the solver loads only when asked, and its answer is checked before it is played ---------- */
   var solverReady = null;
   function loadScript(src) { return new Promise(function (res, rej) { var s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = function () { rej(new Error("Could not load the solver.")); }; document.head.appendChild(s); }); }
-  function loadSolver() {
-    if (!solverReady) solverReady = loadScript("vendor/cube.js").then(function () { return loadScript("vendor/solve.js"); }).then(function () { return tick(); }).then(function () { Cube.initSolver(); });
-    return solverReady;
-  }
-  function problem(text) { busy(""); $("reviewStatus").className = "status bad"; $("reviewStatus").textContent = text; }
-  function solveNow() {
-    var str = state.facelets.join(""), a = analyzeCube(str);
-    if (!a.ok) return;
-    if (str === SOLVED) return showSolution([]);
-    busy("Getting the solver ready. This takes a few seconds the first time.");
-    loadSolver().then(function () { busy("Finding the moves..."); return tick(); }).then(function () {
-      var sol = Cube.fromString(str).solve(), moves = parseAlg(typeof sol === "string" ? sol : "");
-      if (!moves.length || moves.some(function (m) { return !/^[URFDLB][2']?$/.test(m); })) return problem("The solver couldn't find a solution. A sticker may be wrong, so check the colors and try again.");
-      // never show an answer that hasn't been checked: replay it on our own model first
-      if (applyAlg(str, moves.join(" ")) !== SOLVED) return problem("The solver's answer didn't check out, so it won't be shown. Check the colors and try again.");
-      busy(""); showSolution(moves);
-    }).catch(function (e) { problem(e && e.message ? e.message + " Check your connection and try again." : "Something went wrong. Try again."); });
-  }
-  function showSolution(moves) {
-    state.moves = moves; state.idx = 0; state.states = [state.facelets.join("")];
-    moves.forEach(function (m, i) { state.states.push(applyMove(state.states[i], m)); });
-    show("solve"); renderSolve();
-  }
-  function colorOf(L) { return PALETTE[state.paletteOf[L]].name.toLowerCase(); }
-  function describe(m) {
-    var f = m.charAt(0), how = m.length === 1 ? "clockwise quarter turn" : (m.charAt(1) === "'" ? "counterclockwise quarter turn" : "half turn");
-    return "Turn the " + FACE_NAMES[f] + " side (" + colorOf(f) + " middle): " + how + ".";
-  }
-  function renderSolve() {
-    var n = state.moves.length, i = state.idx, cur = state.states[i], mv = state.moves[i], done = i >= n;
-    $("holdText").textContent = "Hold the cube with the " + colorOf("F") + " middle facing you and the " + colorOf("U") + " middle on top, the same way you held it for the first scan.";
-    renderNet($("solveNet"), function (k) { return hexOf(cur.charAt(k)); }, function (k) { return done ? "" : (STK[k].face === mv.charAt(0) ? "turn" : "dim"); });
-    $("solveTitle").textContent = n === 0 ? "Already solved" : (done ? "Solved!" : "Your solution: " + n + " moves");
-    $("stepCount").textContent = n === 0 ? "" : (done ? "ALL " + n + " MOVES DONE" : "MOVE " + (i + 1) + " OF " + n);
-    $("moveBig").textContent = done ? "Done" : mv; $("moveBig").style.fontSize = done ? "32px" : "";
-    $("moveHow").textContent = n === 0 ? "This cube is already solved." : (done ? "Every side should now be one color." : describe(mv));
-    $("prev").disabled = i === 0; $("next").disabled = done; $("next").textContent = i === n - 1 ? "Last move" : "Next move";
+  function loadSolver() { if (!solverReady) solverReady = loadScript("vendor/cube.js").then(function () { return loadScript("vendor/solve.js"); }).then(function () { Cube.initSolver(); }); return solverReady; }
+  function helpMe() {
+    if (game.busy || game.state === SOLVED) { if (game.state === SOLVED) $("status").textContent = "It's already solved."; return; }
+    $("status").textContent = "Getting the solver ready...";
+    setTimeout(function () {
+      loadSolver().then(function () {
+        var start = game.state, sol = Cube.fromString(start).solve(), moves = parseAlg(typeof sol === "string" ? sol : "");
+        if (!moves.length || moves.some(function (m) { return !/^[URFDLB][2']?$/.test(m); }) || applyAlg(start, moves.join(" ")) !== SOLVED) { $("status").textContent = "The solver's answer didn't check out, so it wasn't played."; return; }
+        game.helping = true; $("status").textContent = "Solving it in " + moves.length + " moves...";
+        moves.forEach(function (m) { game.queue.push({ m: m, user: true }); }); runQueue();
+      }).catch(function (e) { $("status").textContent = (e && e.message) || "Something went wrong."; });
+    }, 30);
   }
 
-  /* ---------- Wiring ---------- */
-  $("goScan").onclick = startScan;
-  $("goDemo").onclick = function () {
-    var scramble = randomScramble(22);
-    state.facelets = applyAlg(SOLVED, scramble).split(""); state.paletteOf = STD_PALETTE_OF; state.brush = "U"; state.notice = "This is a demo cube with a random scramble."; state.demoScramble = scramble;
-    show("review"); renderReview();
-  };
-  $("startOver").onclick = function () { show("home"); };
-  $("scanBack").onclick = function () { if (state.step > 0) { state.step--; renderScan(); } };
-  $("scanCapture").onclick = function () { var s = sampleVideo(); if (s) takeSamples(s); else camMessage("The camera isn't ready. Use a photo instead."); };
-  $("scanPhoto").onclick = function () { $("photoInput").click(); };
-  $("photoInput").onchange = function (e) { var f = e.target.files[0]; e.target.value = ""; if (f) loadPhoto(f); };
-  $("rescan").onclick = startScan;
-  $("solve").onclick = solveNow;
-  $("prev").onclick = function () { if (state.idx > 0) { state.idx--; renderSolve(); } };
-  $("next").onclick = function () { if (state.idx < state.moves.length) { state.idx++; renderSolve(); } };
-  window.__app = { state: state, facelets: function () { return state.facelets ? state.facelets.join("") : null; } };   // read-only hook used by the tests
+  /* ---------- keyboard, touch pad and dragging ---------- */
+  var KEYMAP = { KeyA: "L", KeyS: "U", KeyD: "F", KeyJ: "R", KeyK: "D", KeyL: "B" };
+  var KEY_OF = { L: "A", U: "S", F: "D", R: "J", D: "K", B: "L" };
+  function flashKey(m) { var k = document.querySelector('.key[data-m="' + m + '"]'); if (!k) return; k.classList.add("flash"); setTimeout(function () { k.classList.remove("flash"); }, 140); }
+  function userMove(m) { if (game.helping) return; flashKey(m); queueMove(m, true); }
+  document.addEventListener("keydown", function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var f = KEYMAP[e.code];
+    if (f) { e.preventDefault(); if (!e.repeat) userMove(f + (e.shiftKey ? "'" : "")); return; }
+    var step = 12;
+    if (e.key === "ArrowLeft") game.yaw -= step; else if (e.key === "ArrowRight") game.yaw += step;
+    else if (e.key === "ArrowUp") game.pitch = Math.max(-80, game.pitch - step); else if (e.key === "ArrowDown") game.pitch = Math.min(80, game.pitch + step);
+    else return;
+    e.preventDefault(); view();
+  });
+  var pad = $("pad"), NAMES = { L: "LEFT", U: "TOP", F: "FRONT", R: "RIGHT", D: "BOTTOM", B: "BACK" };
+  [["L", "U", "F", "R", "D", "B"], ["L'", "U'", "F'", "R'", "D'", "B'"]].forEach(function (rowMoves) { rowMoves.forEach(function (m) {
+    var b = document.createElement("button"), f = m.charAt(0), back = m.length > 1; b.className = "key"; b.dataset.m = m;
+    b.innerHTML = (back ? "&#8679;" : "") + KEY_OF[f] + "<small>" + NAMES[f] + (back ? " BACK" : "") + "</small>";
+    b.setAttribute("aria-label", "Turn the " + NAMES[f].toLowerCase() + " side " + (back ? "counterclockwise" : "clockwise"));
+    b.onclick = function () { userMove(m); }; pad.appendChild(b);
+  }); });
+  var drag = null, stage = $("stage");
+  stage.addEventListener("pointerdown", function (e) { drag = { x: e.clientX, y: e.clientY, yaw: game.yaw, pitch: game.pitch }; try { stage.setPointerCapture(e.pointerId); } catch (x) {} });
+  stage.addEventListener("pointermove", function (e) { if (!drag) return; game.yaw = drag.yaw + (e.clientX - drag.x) * 0.5; game.pitch = Math.max(-80, Math.min(80, drag.pitch - (e.clientY - drag.y) * 0.5)); view(); });
+  ["pointerup", "pointercancel"].forEach(function (ev) { stage.addEventListener(ev, function () { drag = null; }); });
+  $("scramble").onclick = scramble; $("reset").onclick = reset; $("helpme").onclick = helpMe;
+
+  paint(); view();
+  window.__game = game;   // read-only hook used by the tests
 })();
 </script>
 </body>
