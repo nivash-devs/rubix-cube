@@ -64,7 +64,6 @@ header { display: flex; align-items: center; justify-content: space-between; pad
 <div id="app">
   <header>
     <div class="brand">cube<b>keys</b></div>
-    <span class="small">A S D &nbsp;J K L TO TURN</span>
   </header>
 
   <div class="stage" id="stage" aria-label="Your cube. Drag to look around."><div class="cube" id="cube"></div><div class="banner" id="banner">Solved!</div></div>
@@ -78,14 +77,10 @@ header { display: flex; align-items: center; justify-content: space-between; pad
     <button class="btn ghost" id="reset">Reset</button>
     <button class="btn ghost" id="helpme">Solve it for me</button>
   </div>
-  <p class="status" id="status" aria-live="polite">Press Scramble, then solve it with your keyboard.</p>
+  <p class="status" id="status" aria-live="polite">Press Scramble.</p>
 
   <div class="guide">
     <div class="pad" id="pad"></div>
-    <p class="legend">
-      Left hand: <kbd>A</kbd> left side, <kbd>S</kbd> top, <kbd>D</kbd> front. Right hand: <kbd>J</kbd> right side, <kbd>K</kbd> bottom, <kbd>L</kbd> back.
-      Each key turns that side clockwise, as if you were looking straight at it. Hold <kbd>Shift</kbd> to turn it the other way. <kbd>&larr;</kbd> <kbd>&rarr;</kbd> <kbd>&uarr;</kbd> <kbd>&darr;</kbd> or dragging the cube spins your view.
-    </p>
   </div>
 </div>
 
@@ -319,7 +314,7 @@ function classifyScan(samples) {
     game.running = false; game.scrambled = false; game.finishedAt = performance.now();
     var t = $("time").textContent;
     $("banner").textContent = game.helping ? "Solved!" : "Solved in " + t; $("banner").classList.add("on");
-    $("status").textContent = game.helping ? "Solved. Press Scramble to play again." : "Solved in " + t + " with " + game.count + " moves. Press Scramble to go again.";
+    $("status").textContent = game.helping ? "Solved." : game.count + " moves.";
     game.helping = false;
   }
   function fmt(ms) { var s = ms / 1000, m = Math.floor(s / 60); s -= m * 60; return m + ":" + (s < 10 ? "0" : "") + s.toFixed(1); }
@@ -331,23 +326,23 @@ function classifyScan(samples) {
     resetStats(); var sc = randomScramble(22);
     parseAlg(sc).forEach(function (m) { game.queue.push({ m: m, user: false }); });
     game.scrambled = true; game.lastScramble = sc;
-    $("status").textContent = "Scrambled. The timer starts on your first move.";
+    $("status").textContent = "Go!";
     runQueue();
   }
-  function reset() { game.queue = []; game.state = SOLVED; game.scrambled = false; resetStats(); paint(); $("status").textContent = "Press Scramble, then solve it with your keyboard."; }
+  function reset() { game.queue = []; game.state = SOLVED; game.scrambled = false; resetStats(); paint(); $("status").textContent = "Press Scramble."; }
 
   /* ---------- "Solve it for me": the solver loads only when asked, and its answer is checked before it is played ---------- */
   var solverReady = null;
   function loadScript(src) { return new Promise(function (res, rej) { var s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = function () { rej(new Error("Could not load the solver.")); }; document.head.appendChild(s); }); }
   function loadSolver() { if (!solverReady) solverReady = loadScript("vendor/cube.js").then(function () { return loadScript("vendor/solve.js"); }).then(function () { Cube.initSolver(); }); return solverReady; }
   function helpMe() {
-    if (game.busy || game.state === SOLVED) { if (game.state === SOLVED) $("status").textContent = "It's already solved."; return; }
-    $("status").textContent = "Getting the solver ready...";
+    if (game.busy || game.state === SOLVED) { if (game.state === SOLVED) $("status").textContent = "Already solved."; return; }
+    $("status").textContent = "Thinking...";
     setTimeout(function () {
       loadSolver().then(function () {
         var start = game.state, sol = Cube.fromString(start).solve(), moves = parseAlg(typeof sol === "string" ? sol : "");
-        if (!moves.length || moves.some(function (m) { return !/^[URFDLB][2']?$/.test(m); }) || applyAlg(start, moves.join(" ")) !== SOLVED) { $("status").textContent = "The solver's answer didn't check out, so it wasn't played."; return; }
-        game.helping = true; $("status").textContent = "Solving it in " + moves.length + " moves...";
+        if (!moves.length || moves.some(function (m) { return !/^[URFDLB][2']?$/.test(m); }) || applyAlg(start, moves.join(" ")) !== SOLVED) { $("status").textContent = "Couldn't solve it. Try again."; return; }
+        game.helping = true; $("status").textContent = "Solving...";
         moves.forEach(function (m) { game.queue.push({ m: m, user: true }); }); runQueue();
       }).catch(function (e) { $("status").textContent = (e && e.message) || "Something went wrong."; });
     }, 30);
@@ -371,7 +366,7 @@ function classifyScan(samples) {
   var pad = $("pad"), NAMES = { L: "LEFT", U: "TOP", F: "FRONT", R: "RIGHT", D: "BOTTOM", B: "BACK" };
   [["L", "U", "F", "R", "D", "B"], ["L'", "U'", "F'", "R'", "D'", "B'"]].forEach(function (rowMoves) { rowMoves.forEach(function (m) {
     var b = document.createElement("button"), f = m.charAt(0), back = m.length > 1; b.className = "key"; b.dataset.m = m;
-    b.innerHTML = (back ? "&#8679;" : "") + KEY_OF[f] + "<small>" + NAMES[f] + (back ? " BACK" : "") + "</small>";
+    b.innerHTML = (back ? "&#8679;" : "") + KEY_OF[f] + "<small>" + NAMES[f] + "</small>";
     b.setAttribute("aria-label", "Turn the " + NAMES[f].toLowerCase() + " side " + (back ? "counterclockwise" : "clockwise"));
     b.onclick = function () { userMove(m); }; pad.appendChild(b);
   }); });
